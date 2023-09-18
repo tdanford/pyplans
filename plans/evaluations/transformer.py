@@ -1,8 +1,7 @@
 
 from functools import reduce
 from typing import List
-from plans.plan import Action, Fail, Optional, Steps, Plan, Requirements, Options, Ensure, IfElse, Fail, History
-from plans.visitor import Evaluator 
+from plans.plan import Action, Alternatives, Fail, Loop, Optional, Steps, Plan, Requirements, Options, Ensure, IfElse, Fail, History, Evaluator
 
 class PlanTransformer(Evaluator[Plan]): 
 
@@ -26,10 +25,23 @@ class PlanTransformer(Evaluator[Plan]):
         return Options(
             options.name, *children
         )
+    
+    def evaluate_alternatives(self, alternatives: Alternatives) -> Plan:
+        children: List[Plan] = [self.evaluate_plan(p) for p in alternatives.children]
+        return Alternatives(
+            alternatives.name, *children
+        )
 
     def evaluate_ensure(self, ensure: Ensure) -> Plan:
         p_child = self.evaluate_plan(ensure.children[0]) 
         return Ensure(p_child, name=ensure.name)
+    
+    def evaluate_loop(self, loop: Loop) -> Plan:
+        return Loop(
+            self.evaluate_plan(loop.children[0]), 
+            loop.max_loops, 
+            name=loop.name
+        )
     
     def evaluate_optional(self, opt: Optional) -> Plan:
         return Optional(

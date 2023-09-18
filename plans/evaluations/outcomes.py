@@ -3,8 +3,7 @@ from functools import reduce
 from typing import List
 from random import Random
 
-from plans.plan import Action, Fail, Optional, Steps, Plan, Requirements, Options, Ensure, IfElse, Fail
-from plans.visitor import Evaluator
+from plans.plan import Action, Alternatives, Fail, Loop, Optional, Steps, Plan, Requirements, Options, Ensure, IfElse, Fail, Evaluator
 from plans.outcomes import Outcome, Status
 
 def sample_outcome(p: Plan) -> Outcome: 
@@ -60,6 +59,18 @@ class OutcomeSampler(Evaluator[Outcome]):
             duration 
         )
 
+    def evaluate_alternatives(self, alternatives: Alternatives) -> Outcome:
+        children: List[Outcome] = [self.evaluate_plan(p) for p in alternatives.children]
+        statuses = [c.status for c in children]
+        if Status.SUCCESS in statuses: 
+            successful_indices = [i for i in range(len(children)) if children[i].status == Status.SUCCESS]
+            successful_durations = [children[i].duration for i in successful_indices]
+            duration = min(successful_durations)
+            return Outcome(Status.SUCCESS, duration) 
+        else: 
+            duration = max([c.duration for c in children])
+            return Outcome(Status.FAILURE, duration) 
+
     def evaluate_ensure(self, ensure: Ensure) -> Outcome:
         child: Outcome = self.evaluate_plan(ensure.children[0])
         duration: int = child.duration 
@@ -69,6 +80,15 @@ class OutcomeSampler(Evaluator[Outcome]):
             duration += child.duration 
             success = success | child.status 
         return Outcome(success, duration) 
+    
+    def evaluate_loop(self, loop: Loop) -> Outcome:
+        duration: int = 0
+        for i in range(loop.max_loops):
+            child: Outcome = self.evaluate_plan(loop.children[0])
+            duration += child.duration 
+            if child.status: 
+                return Outcome(Status.SUCCESS, duration) 
+        return Outcome(Status.FAILURE, duration) 
     
     def evaluate_ifelse(self, ifelse: IfElse) -> Outcome:
         test_outcome: Outcome = self.evaluate_plan(ifelse.children[0]) 

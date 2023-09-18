@@ -70,4 +70,31 @@ def test_example10():
     )
     assert success_probability(s) == 0.2
 
+def test_example11(): 
+    s = Steps("Taking care of the cat",
+            Steps(
+                "Feed the cat", 
+                Action("Get the cat food", duration=1, success_prob=0.5), 
+                Action("Fill the cat food bowl", duration=3, success_prob=0.5) 
+            ), 
+            Action("Clean the litter box", success_prob=0.8, duration=1)
+    )
+    r = Requirements("Taking care of the cat",
+            Steps(
+                "Feed the cat", 
+                Action("Get the cat food", duration=1, success_prob=0.5), 
+                Action("Fill the cat food bowl", duration=3, success_prob=0.5) 
+            ), 
+            Action("Clean the litter box", success_prob=0.8, duration=1)
+    )
+    assert success_probability(s) == success_probability(r) 
 
+# Options 
+
+def test_readme_options(): 
+    buy_plan = Options(
+        Action("Buy cat chow", success_prob=0.8, duration=1), 
+        Action("Buy fuzzy feline", success_prob=0.95, duration=2)
+    )
+    assert success_probability(buy_plan) == 0.95
+    assert average_duration(buy_plan) == (0.8 * 1 + 0.2 * 2)
