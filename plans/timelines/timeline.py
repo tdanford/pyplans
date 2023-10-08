@@ -9,8 +9,8 @@ class Timeline:
 
     events: List[Event]
 
-    def __init__(self, events: Iterable[Event]): 
-        self.events = sorted(list(events)) 
+    def __init__(self, events: Iterable[Event] = None): 
+        self.events = sorted(list(events or [])) 
     
     def add_event(self, event: Event): 
         self.events.append(event) 
@@ -74,7 +74,9 @@ class StringBuffer:
        self.setchar(idx, newvalue) 
     
     def __add__(self, other: 'StringBuffer') -> 'StringBuffer': 
-        return self.duplicate().layer_on(other)
+        b2 = self.duplicate() 
+        b2.layer_on(other) 
+        return b2 
     
     def duplicate(self) -> 'StringBuffer':
         b = StringBuffer(self.len) 
