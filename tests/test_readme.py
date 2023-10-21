@@ -2,6 +2,7 @@
 from plans import * 
 from plans.math import * 
 from plans.outcomes import Status, Outcome
+from plans.evaluations.success import SuccessEvaluator
 
 def close_to(value, target, eps=0.01) -> bool: 
     return abs(value - target) <= eps
@@ -92,9 +93,24 @@ def test_example11():
 # Options 
 
 def test_readme_options(): 
-    buy_plan = Options(
-        Action("Buy cat chow", success_prob=0.8, duration=1), 
-        Action("Buy fuzzy feline", success_prob=0.95, duration=2)
+    action1 = Action("Buy cat chow", success_prob=0.8, duration=1)
+    action2 = Action("Buy fuzzy feline", success_prob=0.95, duration=2)
+    buy_plan = Options("Taking care of the cat",
+        action1, action2
     )
-    assert success_probability(buy_plan) == 0.95
-    assert average_duration(buy_plan) == (0.8 * 1 + 0.2 * 2)
+    
+    sp1 = success_probability(action1) 
+    sp2 = success_probability(action2) 
+    assert sp1 == 0.8
+    assert sp2 == 0.95
+
+    target_prob = 1.0 - ((1.0 - sp1) * (1.0 - sp2))
+
+    eval = SuccessEvaluator()
+    assert eval.success_disjunction([action1, action2]) == target_prob
+    assert eval.success_disjunction(buy_plan.children) == target_prob
+    assert success_probability(buy_plan) == eval.success_disjunction(buy_plan.children)
+
+    #assert success_probability(buy_plan) == 0.95
+    assert success_probability(buy_plan) == target_prob
+    assert close_to(average_duration(buy_plan, n=1000), 1.4, eps=0.2)

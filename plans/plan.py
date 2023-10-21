@@ -9,6 +9,7 @@ from rich.console import Console
 
 from plans.outcomes import Outcome, Status
 from plans.math import IntDist, Constant
+from plans.context import Context
 
 def generate_id(): 
     return str(uuid4())
@@ -17,40 +18,40 @@ T = TypeVar('T')
 
 class Evaluator(Generic[T]): 
 
-    def evaluate_plan(self, plan: 'Plan') -> T: 
-        return plan.evaluate(self) 
+    def evaluate_plan(self, plan: 'Plan', c: Context = None) -> T: 
+        return plan.evaluate(self, c) 
 
-    def evaluate_action(self, action: 'Action') -> T: 
+    def evaluate_action(self, action: 'Action', c: Context) -> T: 
         ... 
 
-    def evaluate_steps(self, steps: 'Steps') -> T:
+    def evaluate_steps(self, steps: 'Steps', c: Context) -> T:
         ... 
 
-    def evaluate_requirements(self, reqs: 'Requirements') -> T:
+    def evaluate_requirements(self, reqs: 'Requirements', c: Context) -> T:
         ...
 
-    def evaluate_options(self, options: 'Options') -> T: 
+    def evaluate_options(self, options: 'Options', c: Context) -> T: 
         ...
     
-    def evaluate_alternatives(self, alternatives: 'Alternatives') -> T: 
+    def evaluate_alternatives(self, alternatives: 'Alternatives', c: Context) -> T: 
         ...
 
-    def evaluate_ensure(self, ensure: 'Ensure') -> T: 
+    def evaluate_ensure(self, ensure: 'Ensure', c: Context) -> T: 
         ...
     
-    def evaluate_loop(self, loop: 'Loop') -> T: 
+    def evaluate_loop(self, loop: 'Loop', c: Context) -> T: 
         ...
     
-    def evaluate_ifelse(self, ifelse: 'IfElse') -> T: 
+    def evaluate_ifelse(self, ifelse: 'IfElse', c: Context) -> T: 
         ...
 
-    def evaluate_fail(self, failure: 'Fail') -> T: 
+    def evaluate_fail(self, failure: 'Fail', c: Context) -> T: 
         ...
 
-    def evaluate_optional(self, opt: 'Optional') -> T: 
+    def evaluate_optional(self, opt: 'Optional', c: Context) -> T: 
         ...
     
-    def evaluate_choices(self, choices: 'Choices') -> T: 
+    def evaluate_choices(self, choices: 'Choices', c: Context) -> T: 
         ...
 
 
@@ -279,7 +280,7 @@ class Plan:
         self.plan_type = self.__class__.__name__
         self.children = list(children) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T: 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T: 
         ...
     
     def __getitem__(self, idx) -> 'Plan': 
@@ -339,8 +340,8 @@ class Action(Plan):
         self.success_prob = success_prob
         self.duration = duration if isinstance(duration, IntDist) else Constant(duration) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_action(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_action(self, c) 
     
     def sample_outcome(self, rand: Random) -> Outcome: 
         p = rand.random() 
@@ -357,8 +358,8 @@ class Steps(Plan):
     def __init__(self, name: str, *children: Plan): 
         Plan.__init__(self, name, *children) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_steps(self)
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_steps(self, c)
     
     def number_steps(self): 
         for i in range(0, len(self.children)): 
@@ -371,8 +372,8 @@ class Requirements(Plan):
     def __init__(self, name: str, *children: Plan): 
         Plan.__init__(self, name, *children) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_requirements(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_requirements(self, c) 
 
 class Options(Plan): 
     """Options, like a logical OR, succeed if _at least_ one of the child plans 
@@ -383,8 +384,8 @@ class Options(Plan):
     def __init__(self, name: str, *children: Plan): 
         Plan.__init__(self, name, *children) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_options(self) 
+    def evaluate(self, evaluator: Evaluator[T], c : Context = None) -> T:
+        return evaluator.evaluate_options(self, c) 
 
 class Alternatives(Plan): 
     """Alternatives, like a logical OR, succeed if _at least_ one of the child plans 
@@ -396,8 +397,8 @@ class Alternatives(Plan):
     def __init__(self, name: str, *children: Plan): 
         Plan.__init__(self, name, *children) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_alternatives(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_alternatives(self, c) 
 
 class Ensure(Plan): 
     """Ensure repeats a single child plan until it is successful. 
@@ -410,8 +411,8 @@ class Ensure(Plan):
     def __init__(self, child: Plan, name=None): 
         Plan.__init__(self, name or f"Ensure {child.plan}", child) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_ensure(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_ensure(self, c) 
 
 class Loop(Plan): 
     """Loop repeats a single child plan until it is successful, but with at most 
@@ -426,8 +427,8 @@ class Loop(Plan):
         Plan.__init__(self, name or f"Loop {child.plan}", child) 
         self.max_loops = max_loops
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_loop(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_loop(self, c) 
 
 class IfElse(Plan): 
     """IfElse has three child plans: the 'test', 'consequent', and 'alternate' 
@@ -438,8 +439,8 @@ class IfElse(Plan):
     def __init__(self, test: Plan, consequent: Plan, alternate: Plan, name="IfElse"): 
         Plan.__init__(self, name, test, consequent, alternate) 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_ifelse(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_ifelse(self, c) 
 
 class Fail(Plan): 
     """Fail plan *never* succeeds, and does so instantaneously"""
@@ -447,8 +448,8 @@ class Fail(Plan):
     def __init__(self): 
         Plan.__init__(self, "FAIL") 
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_fail(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_fail(self, c) 
 
 class Optional(Plan): 
     """Optional plan executes the child plan, but succeeds no matter whether the 
@@ -457,8 +458,8 @@ class Optional(Plan):
     def __init__(self, plan: Plan, name=None): 
         Plan.__init__(self, name or f"Optional {plan.name}", plan)
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_optional(self) 
+    def evaluate(self, evaluator: Evaluator[T], c : Context = None) -> T:
+        return evaluator.evaluate_optional(self, c) 
 
 class Choices(Plan): 
     """Choices plan executes exactly one of its child plans, and succeeds or fails 
@@ -472,6 +473,6 @@ class Choices(Plan):
     def __init__(self, name: str, *children: Plan): 
         Plan.__init__(self, name, *children)
     
-    def evaluate(self, evaluator: Evaluator[T]) -> T:
-        return evaluator.evaluate_choices(self) 
+    def evaluate(self, evaluator: Evaluator[T], c: Context = None) -> T:
+        return evaluator.evaluate_choices(self, c) 
 

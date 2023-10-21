@@ -8,6 +8,7 @@ from plans.plan import (
 )
 
 from plans.outcomes import Status
+from plans.context import Context 
 
 def sample_history(p: Plan) -> History: 
     v = HistorySampler()
@@ -29,7 +30,7 @@ class HistorySampler(Evaluator[History]):
             self.rand 
         )
 
-    def evaluate_action(self, action: Action) -> History:
+    def evaluate_action(self, action: Action, c: Context = None) -> History:
         start_time = self.current_time
         outcome = action.sample_outcome(self.rand)
         end_time = start_time + outcome.duration
@@ -42,12 +43,12 @@ class HistorySampler(Evaluator[History]):
         self.current_time = end_time 
         return History(event) 
 
-    def evaluate_steps(self, steps: Steps) -> History:
+    def evaluate_steps(self, steps: Steps, c: Context = None) -> History:
         start_time = self.current_time
         success: Status = Status.SUCCESS
         histories: List[History] = list() 
         for child in steps.children: 
-            child_history: History = self.evaluate_plan(child) 
+            child_history: History = self.evaluate_plan(child, c) 
             histories.append(child_history) 
             success = success & child_history.result.status
             self.current_time = child_history.end_time
@@ -64,7 +65,7 @@ class HistorySampler(Evaluator[History]):
             *histories
         )
     
-    def evaluate_requirements(self, reqs: Requirements) -> History:
+    def evaluate_requirements(self, reqs: Requirements, c: Context = None) -> History:
         start_time = self.current_time
         n = len(reqs.children) 
         child_evaluators = [self.copy() for c in reqs.children]
@@ -95,12 +96,12 @@ class HistorySampler(Evaluator[History]):
                 *child_histories
             )
 
-    def evaluate_options(self, options: Options) -> History:
+    def evaluate_options(self, options: Options, c: Context = None) -> History:
         start_time = self.current_time
         success: Status = Status.FAILURE
         histories: List[History] = list() 
         for child in options.children: 
-            child_history: History = self.evaluate_plan(child) 
+            child_history: History = self.evaluate_plan(child, c) 
             histories.append(child_history) 
             success = success | child_history.result.status
             self.current_time = child_history.end_time
@@ -117,7 +118,7 @@ class HistorySampler(Evaluator[History]):
             *histories
         )
 
-    def evaluate_alternatives(self, alts: Alternatives) -> History:
+    def evaluate_alternatives(self, alts: Alternatives, c: Context = None) -> History:
         start_time = self.current_time
         n = len(alts.children) 
         child_evaluators = [self.copy() for c in alts.children]
@@ -148,14 +149,14 @@ class HistorySampler(Evaluator[History]):
                 *child_histories
             )
 
-    def evaluate_ensure(self, ensure: Ensure) -> History:
+    def evaluate_ensure(self, ensure: Ensure, c: Context = None) -> History:
         start_time = self.current_time 
         histories: List[History] = list() 
-        child: History = self.evaluate_plan(ensure.children[0])
+        child: History = self.evaluate_plan(ensure.children[0], c)
         histories.append(child) 
         success: Status = child.result.status 
         while not success: 
-            child = self.evaluate_plan(ensure.children[0])
+            child = self.evaluate_plan(ensure.children[0], c)
             histories.append(child) 
             success = success | child.result.status 
             self.current_time = child.result.end_time
@@ -169,11 +170,11 @@ class HistorySampler(Evaluator[History]):
             evt, *histories
         )
 
-    def evaluate_loop(self, loop: Loop) -> History:
+    def evaluate_loop(self, loop: Loop, c: Context = None) -> History:
         start_time = self.current_time 
         histories: List[History] = list() 
         for i in range(loop.max_loops): 
-            child: History = self.evaluate_plan(loop.children[0])
+            child: History = self.evaluate_plan(loop.children[0], c)
             histories.append(child) 
             self.current_time = child.result.end_time
             if child.result.status: 
@@ -197,14 +198,14 @@ class HistorySampler(Evaluator[History]):
         )
     
     
-    def evaluate_ifelse(self, ifelse: IfElse) -> History:
+    def evaluate_ifelse(self, ifelse: IfElse, c: Context = None) -> History:
         start_time = self.current_time
-        test_history: History = self.evaluate_plan(ifelse.children[0]) 
+        test_history: History = self.evaluate_plan(ifelse.children[0], c) 
         outc: History = None
         if test_history.result.status: 
-            outc = self.evaluate_plan(ifelse.children[1]) 
+            outc = self.evaluate_plan(ifelse.children[1], c) 
         else: 
-            outc = self.evaluate_plan(ifelse.children[2]) 
+            outc = self.evaluate_plan(ifelse.children[2], c) 
 
         evt = Event.complete(
             ifelse, 
@@ -217,15 +218,15 @@ class HistorySampler(Evaluator[History]):
             test_history, outc 
         )
     
-    def evaluate_fail(self, failure: Fail) -> History:
+    def evaluate_fail(self, failure: Fail, c: Context = None) -> History:
         return History(
             Event.complete(
                 failure, self.current_time, self.current_time, Status.FAILURE
             )
         )
     
-    def evaluate_optional(self, opt: Optional) -> History:
-        inner_history = self.evaluate_plan(opt) 
+    def evaluate_optional(self, opt: Optional, c: Context = None) -> History:
+        inner_history = self.evaluate_plan(opt, c) 
         evt = Event.complete(
             opt, 
             inner_history.start_time, 
