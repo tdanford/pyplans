@@ -1,6 +1,6 @@
 # Plans 
 
-If you want to accomplish a goal, one thing you might do is _make a plan_.  
+If you want to accomplish a goal, one thing you might do is _make a plan_ -- and then write it down.
 
 The `plans` package lets you write down step-by-step, or other structures of, plans -- and then lets you manipulate them, evaluate them formally, or even simulate their performance.  
 
